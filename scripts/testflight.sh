@@ -28,5 +28,11 @@ if ! command -v bundle >/dev/null 2>&1; then
   exit 1
 fi
 
+# Load local env if present
+if [[ -f .env ]]; then
+  # shellcheck disable=SC2046
+  export $(grep -v '^#' .env | xargs) || true
+fi
+
 bundle install
 bundle exec fastlane ios beta

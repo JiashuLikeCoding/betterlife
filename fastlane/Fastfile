@@ -12,7 +12,14 @@ platform :ios do
     #     - ASC_KEY_FILEPATH (path to AuthKey_XXXX.p8) OR
     #     - ASC_KEY_CONTENT (contents of the .p8) OR
     #     - ASC_KEY_BASE64 (base64-encoded contents of the .p8)
-    if ENV["ASC_KEY_ID"] && ENV["ASC_ISSUER_ID"] && (ENV["ASC_KEY_FILEPATH"] || ENV["ASC_KEY_CONTENT"] || ENV["ASC_KEY_BASE64"])
+    has_api_key = ENV["ASC_KEY_ID"] && ENV["ASC_ISSUER_ID"] && (ENV["ASC_KEY_FILEPATH"] || ENV["ASC_KEY_CONTENT"] || ENV["ASC_KEY_BASE64"])
+
+    unless has_api_key
+      UI.important("No App Store Connect API key detected. TestFlight upload may fail or require interactive Apple ID auth.")
+      UI.important("Set ASC_KEY_ID + ASC_ISSUER_ID + (ASC_KEY_FILEPATH or ASC_KEY_BASE64). See .env.example")
+    end
+
+    if has_api_key
       key_content = ENV["ASC_KEY_CONTENT"]
       if key_content.to_s.empty? && ENV["ASC_KEY_BASE64"].to_s.size > 0
         require "base64"
