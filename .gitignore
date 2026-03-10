@@ -1,0 +1,22 @@
+# Xcode
+.DS_Store
+DerivedData/
+*.xcuserstate
+*.xcuserdata/
+
+# Fastlane / Ruby
+.bundle/
+vendor/
+Gemfile.lock
+fastlane/report.xml
+fastlane/README.md
+
+# Secrets
+.env
+
+# Build artifacts
+*.ipa
+*.dSYM.zip
+
+# Scratch
+/tmp_icon/
