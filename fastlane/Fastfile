@@ -56,7 +56,10 @@ platform :ios do
       scheme: scheme,
       project: project,
       clean: true,
-      export_method: "app-store"
+      destination: "generic/platform=iOS",
+      export_method: "app-store-connect",
+      xcargs: "-allowProvisioningUpdates",
+      export_xcargs: "-allowProvisioningUpdates"
     )
 
     upload_to_testflight(
