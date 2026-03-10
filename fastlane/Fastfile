@@ -57,7 +57,7 @@ platform :ios do
       project: project,
       clean: true,
       destination: "generic/platform=iOS",
-      export_method: "app-store-connect",
+      export_method: "app-store",
       xcargs: "-allowProvisioningUpdates",
       export_xcargs: "-allowProvisioningUpdates"
     )
