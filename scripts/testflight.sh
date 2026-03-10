@@ -38,8 +38,7 @@ if [[ -f .env ]]; then
   set +a
 fi
 
-# Avoid sudo by installing gems locally
-bundle config set --local path "vendor/bundle" >/dev/null
-
-bundle install
+# Avoid sudo by installing gems locally (Bundler 1.x compatible)
+mkdir -p vendor/bundle
+bundle install --path vendor/bundle
 bundle exec fastlane ios beta
