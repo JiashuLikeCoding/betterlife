@@ -29,10 +29,17 @@ if ! command -v bundle >/dev/null 2>&1; then
 fi
 
 # Load local env if present
+# .env should be shell-compatible, e.g.:
+#   ASC_KEY_FILEPATH="/Users/jason/Documents/Mobile App/AuthKey_XXXX.p8"
 if [[ -f .env ]]; then
-  # shellcheck disable=SC2046
-  export $(grep -v '^#' .env | xargs) || true
+  set -a
+  # shellcheck disable=SC1091
+  source .env
+  set +a
 fi
+
+# Avoid sudo by installing gems locally
+bundle config set --local path "vendor/bundle" >/dev/null
 
 bundle install
 bundle exec fastlane ios beta
