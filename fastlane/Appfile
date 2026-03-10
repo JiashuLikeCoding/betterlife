@@ -1,0 +1,5 @@
+# Update these before first upload
+app_identifier "BetterLife.BetterLife"  # TODO: change to your real bundle id (e.g. com.yourcompany.betterlife)
+
+# If you use multiple teams, set one (optional when using API key)
+# team_id "XXXXXXXXXX"

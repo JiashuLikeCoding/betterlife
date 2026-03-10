@@ -1,0 +1,59 @@
+default_platform(:ios)
+
+platform :ios do
+  desc "Build and upload a new TestFlight build"
+  lane :beta do
+    scheme = ENV.fetch("SCHEME", "BetterLife")
+    project = ENV.fetch("XCODEPROJ", "BetterLife.xcodeproj")
+
+    # Authentication (recommended): App Store Connect API key
+    # Provide via env:
+    #   ASC_KEY_ID, ASC_ISSUER_ID, and either:
+    #     - ASC_KEY_FILEPATH (path to AuthKey_XXXX.p8) OR
+    #     - ASC_KEY_CONTENT (contents of the .p8) OR
+    #     - ASC_KEY_BASE64 (base64-encoded contents of the .p8)
+    if ENV["ASC_KEY_ID"] && ENV["ASC_ISSUER_ID"] && (ENV["ASC_KEY_FILEPATH"] || ENV["ASC_KEY_CONTENT"] || ENV["ASC_KEY_BASE64"])
+      key_content = ENV["ASC_KEY_CONTENT"]
+      if key_content.to_s.empty? && ENV["ASC_KEY_BASE64"].to_s.size > 0
+        require "base64"
+        key_content = Base64.decode64(ENV["ASC_KEY_BASE64"])
+      end
+
+      api_key_opts = {
+        key_id: ENV["ASC_KEY_ID"],
+        issuer_id: ENV["ASC_ISSUER_ID"],
+        in_house: false
+      }
+
+      if ENV["ASC_KEY_FILEPATH"].to_s.size > 0
+        api_key_opts[:key_filepath] = ENV["ASC_KEY_FILEPATH"]
+      else
+        api_key_opts[:key_content] = key_content
+      end
+
+      app_store_connect_api_key(**api_key_opts)
+    end
+
+    # Make each CI run a unique build number.
+    # You can override with BUILD_NUMBER.
+    if ENV["BUILD_NUMBER"].to_s.size > 0
+      increment_build_number(
+        build_number: ENV["BUILD_NUMBER"],
+        xcodeproj: project
+      )
+    else
+      increment_build_number(xcodeproj: project)
+    end
+
+    build_app(
+      scheme: scheme,
+      project: project,
+      clean: true,
+      export_method: "app-store"
+    )
+
+    upload_to_testflight(
+      skip_waiting_for_build_processing: true
+    )
+  end
+end
