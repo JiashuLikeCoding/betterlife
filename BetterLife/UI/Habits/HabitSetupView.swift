@@ -14,6 +14,7 @@ struct HabitSetupView: View {
     @State private var microSteps: [String] = []
     @State private var starterStep: String = ""
     @State private var didManuallyEditSteps: Bool = false
+    @State private var isEditingSteps: Bool = false
 
     @State private var contextHint: String = "日常最順手的時間"
     @State private var successDefinition: String = "完成第一步就算做到"
@@ -94,27 +95,48 @@ struct HabitSetupView: View {
                         regenerateSteps(force: true)
                     }
 
-                    ForEach(microSteps.indices, id: \.self) { idx in
-                        TextField("小步驟 \(idx + 1)", text: bindingForStep(at: idx))
-                            .textInputAutocapitalization(.never)
-                    }
-                    .onDelete(perform: deleteSteps)
+                    // Tap-to-select (no keyboard)
+                    let cleaned = microSteps
+                        .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                        .filter { !$0.isEmpty }
 
-                    Button("＋新增一條") {
-                        didManuallyEditSteps = true
-                        microSteps.append("")
-                    }
-
-                    if !microSteps.compactMap({ $0.trimmingCharacters(in: .whitespacesAndNewlines) }).isEmpty {
-                        Picker("今天的起手式", selection: $starterStep) {
-                            ForEach(microSteps.compactMap { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }, id: \.self) { s in
-                                Text(s).tag(s)
+                    ForEach(cleaned, id: \.self) { step in
+                        Button {
+                            starterStep = step
+                        } label: {
+                            HStack(spacing: 12) {
+                                Text(step)
+                                    .foregroundStyle(.primary)
+                                Spacer()
+                                if starterStep.trimmingCharacters(in: .whitespacesAndNewlines) == step {
+                                    Image(systemName: "checkmark")
+                                        .foregroundStyle(.blue)
+                                }
                             }
                         }
-                        .pickerStyle(.menu)
+                        .buttonStyle(.plain)
+                        .contentShape(Rectangle())
+                        Divider()
                     }
 
-                    TextField("或自行修改起手式", text: $starterStep)
+                    Button(isEditingSteps ? "完成編輯" : "編輯小步驟") {
+                        isEditingSteps.toggle()
+                    }
+
+                    if isEditingSteps {
+                        ForEach(microSteps.indices, id: \.self) { idx in
+                            TextField("小步驟 \(idx + 1)", text: bindingForStep(at: idx))
+                                .textInputAutocapitalization(.never)
+                        }
+                        .onDelete(perform: deleteSteps)
+
+                        Button("＋新增一條") {
+                            didManuallyEditSteps = true
+                            microSteps.append("")
+                        }
+                    }
+
+                    TextField("起手式（可自行修改）", text: $starterStep)
                         .textInputAutocapitalization(.never)
                 }
 
