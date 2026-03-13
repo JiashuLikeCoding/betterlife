@@ -3,18 +3,58 @@ import SwiftUI
 struct HabitSetupView: View {
     @Environment(\.dismiss) private var dismiss
 
+    private let defaultStepsCount = 7
+
     @State private var habitName: String = ""
     @State private var habitType: HabitType = .focusExecution
     @State private var stage: HabitStage = .starting
     @State private var barrier: MainBarrier = .lowMotivation
     @State private var isCore: Bool = true
 
-    @State private var starterStep: String = TaskLibrary.starterSuggestions(for: .focusExecution, habitName: nil).first ?? "把手機靜音5分鐘"
+    @State private var microSteps: [String] = []
+    @State private var starterStep: String = ""
+    @State private var didManuallyEditSteps: Bool = false
+
     @State private var contextHint: String = "日常最順手的時間"
     @State private var successDefinition: String = "完成第一步就算做到"
     @State private var freeNote: String = ""
 
     var onSave: (Habit) -> Void
+
+    private func bindingForStep(at index: Int) -> Binding<String> {
+        Binding(
+            get: { microSteps.indices.contains(index) ? microSteps[index] : "" },
+            set: { newValue in
+                didManuallyEditSteps = true
+                if microSteps.indices.contains(index) {
+                    microSteps[index] = newValue
+                }
+            }
+        )
+    }
+
+    private func deleteSteps(at offsets: IndexSet) {
+        didManuallyEditSteps = true
+        microSteps.remove(atOffsets: offsets)
+        if microSteps.isEmpty {
+            starterStep = ""
+        } else if !microSteps.contains(starterStep) {
+            starterStep = microSteps.first?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        }
+    }
+
+    private func regenerateSteps(force: Bool) {
+        let name = habitName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { return }
+        if !force && didManuallyEditSteps { return }
+
+        let suggestions = AIStepSuggester.suggestMicroSteps(habitName: name)
+        microSteps = Array(suggestions.prefix(defaultStepsCount))
+        starterStep = microSteps.first ?? ""
+        if force == true {
+            didManuallyEditSteps = false
+        }
+    }
 
     var body: some View {
         NavigationStack {
@@ -39,15 +79,42 @@ struct HabitSetupView: View {
                     Toggle("設為核心習慣", isOn: $isCore)
                 }
 
-                Section("起手式（30 秒內）") {
-                    Picker("建議", selection: $starterStep) {
-                        ForEach(TaskLibrary.starterSuggestions(for: habitType, habitName: habitName), id: \.self) { s in
-                            Text(s).tag(s)
-                        }
-                    }
-                    .pickerStyle(.menu)
+                Section("小儀式（30 秒內）") {
+                    Text("先選一個你做得到的第一步。這些小步驟也會成為 Bingo 的習慣任務來源。")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
 
-                    TextField("或自行修改", text: $starterStep)
+                    if microSteps.isEmpty {
+                        Text("先輸入習慣名稱，我會幫你起草幾個小步驟；你可以刪改到順手為止。")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Button("AI 幫我起草小步驟") {
+                        regenerateSteps(force: true)
+                    }
+
+                    ForEach(microSteps.indices, id: \.self) { idx in
+                        TextField("小步驟 \(idx + 1)", text: bindingForStep(at: idx))
+                            .textInputAutocapitalization(.never)
+                    }
+                    .onDelete(perform: deleteSteps)
+
+                    Button("＋新增一條") {
+                        didManuallyEditSteps = true
+                        microSteps.append("")
+                    }
+
+                    if !microSteps.compactMap({ $0.trimmingCharacters(in: .whitespacesAndNewlines) }).isEmpty {
+                        Picker("今天的起手式", selection: $starterStep) {
+                            ForEach(microSteps.compactMap { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }, id: \.self) { s in
+                                Text(s).tag(s)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                    }
+
+                    TextField("或自行修改起手式", text: $starterStep)
                         .textInputAutocapitalization(.never)
                 }
 
@@ -67,13 +134,29 @@ struct HabitSetupView: View {
                     Button("儲存") {
                         let name = habitName.trimmingCharacters(in: .whitespacesAndNewlines)
                         guard !name.isEmpty else { return }
+                        let cleanedSteps = microSteps
+                            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                            .filter { !$0.isEmpty }
+
+                        let starter = starterStep.trimmingCharacters(in: .whitespacesAndNewlines)
+                        let finalStarter = starter.isEmpty ? (cleanedSteps.first ?? name) : starter
+
+                        var finalSteps = cleanedSteps
+                        if finalSteps.isEmpty {
+                            finalSteps = AIStepSuggester.suggestMicroSteps(habitName: name)
+                        }
+                        if !finalSteps.contains(finalStarter) {
+                            finalSteps.insert(finalStarter, at: 0)
+                        }
+
                         let habit = Habit(
                             habitName: name,
                             habitType: habitType,
                             stage: stage,
                             mainBarrier: barrier,
                             isCore: isCore,
-                            starterStep: starterStep.trimmingCharacters(in: .whitespacesAndNewlines),
+                            microSteps: finalSteps,
+                            starterStep: finalStarter,
                             contextHint: contextHint.trimmingCharacters(in: .whitespacesAndNewlines),
                             successDefinition: successDefinition.trimmingCharacters(in: .whitespacesAndNewlines),
                             freeNote: freeNote.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -83,19 +166,11 @@ struct HabitSetupView: View {
                     }
                 }
             }
-            .onChange(of: habitType) { newValue in
-                let suggestions = TaskLibrary.starterSuggestions(for: newValue, habitName: habitName)
-                if let first = suggestions.first {
-                    starterStep = first
-                }
+            .onAppear {
+                regenerateSteps(force: false)
             }
             .onChange(of: habitName) { _ in
-                // Refresh suggestions when the habit name clarifies intent (e.g. sleep)
-                let suggestions = TaskLibrary.starterSuggestions(for: habitType, habitName: habitName)
-                if suggestions.contains(starterStep) { return }
-                if let first = suggestions.first {
-                    starterStep = first
-                }
+                regenerateSteps(force: false)
             }
         }
     }

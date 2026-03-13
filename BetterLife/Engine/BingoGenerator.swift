@@ -106,13 +106,24 @@ enum BingoGenerator {
             remainingSelfLove = max(0, remainingSelfLove - overflow)
         }
 
-        // 2) Fill habit slots (optional extras)
+        // 2) Fill habit slots (micro steps)
         if remainingSlots > 0 && remainingHabit > 0 {
-            var extras = habitPool.filter { $0.pathStep == nil } // currently none; placeholder
-            extras.shuffle(using: &rng)
-            for tpl in extras.prefix(remainingHabit) {
-                let adjustedTier = adjustTier(tpl.tier, tooHard: tooHard, tooEasy: tooEasy)
-                tasks.append(BingoTask(id: tpl.id, text: tpl.text, source: .habit, tier: adjustedTier, pathGroup: tpl.pathGroup, pathStep: tpl.pathStep))
+            var pool = habit.microSteps
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+
+            if pool.isEmpty {
+                pool = [habit.starterStep]
+            }
+
+            // Avoid repeating steps already placed in the board
+            let already = Set(tasks.map { $0.text })
+            pool = pool.filter { !already.contains($0) }
+
+            pool.shuffle(using: &rng)
+
+            for (i, text) in pool.prefix(remainingHabit).enumerated() {
+                tasks.append(BingoTask(id: "micro_\(i)", text: text, source: .habit, tier: .micro, pathGroup: nil, pathStep: nil))
             }
             remainingSlots = 16 - tasks.count
         }
@@ -128,13 +139,19 @@ enum BingoGenerator {
             }
         }
 
-        // 4) If still not 16, fill with safe starter templates only
+        // 4) If still not 16, fill with habit micro steps (always relevant)
         if tasks.count < 16 {
-            let starter = TaskLibrary.starterSuggestions(for: habit.habitType)
+            var fallback = habit.microSteps
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+            if fallback.isEmpty {
+                fallback = [habit.starterStep]
+            }
+
             var i = 0
             while tasks.count < 16 {
-                let text = starter[i % starter.count]
-                tasks.append(BingoTask(id: "starter_\(i)", text: text, source: .habit, tier: .micro, pathGroup: nil, pathStep: nil))
+                let text = fallback[i % fallback.count]
+                tasks.append(BingoTask(id: "habit_fallback_\(i)", text: text, source: .habit, tier: .micro, pathGroup: nil, pathStep: nil))
                 i += 1
             }
         }
@@ -149,7 +166,7 @@ enum BingoGenerator {
 
             // Ensure we have at least 2 habit tasks; if not, append starter suggestions.
             while habitIndices.count < 2 {
-                let suggestion = TaskLibrary.starterSuggestions(for: habit.habitType, habitName: habit.habitName).first ?? habit.starterStep
+                let suggestion = habit.microSteps.first ?? habit.starterStep
                 let idx = tasks.count
                 tasks.append(BingoTask(id: "habit_fill_\(idx)", text: suggestion, source: .habit, tier: .micro, pathGroup: nil, pathStep: nil))
                 habitIndices.append(idx)

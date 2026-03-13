@@ -8,8 +8,15 @@ struct Habit: Codable, Identifiable, Equatable {
     var mainBarrier: MainBarrier
     var isCore: Bool
 
+    /// Habit-specific micro steps.
+    /// - source of truth for habit tasks generation (always relevant)
+    /// - user can edit/curate
+    var microSteps: [String]
+
     /// 30秒內、單一動作、可判斷完成
+    /// - should be one of `microSteps` when possible
     var starterStep: String
+
     var contextHint: String
     var successDefinition: String
     var freeNote: String
@@ -25,6 +32,7 @@ struct Habit: Codable, Identifiable, Equatable {
         stage: HabitStage,
         mainBarrier: MainBarrier,
         isCore: Bool,
+        microSteps: [String] = [],
         starterStep: String,
         contextHint: String = "日常最順手的時間",
         successDefinition: String = "完成第一步就算做到",
@@ -38,12 +46,42 @@ struct Habit: Codable, Identifiable, Equatable {
         self.stage = stage
         self.mainBarrier = mainBarrier
         self.isCore = isCore
+        self.microSteps = microSteps
         self.starterStep = starterStep
         self.contextHint = contextHint
         self.successDefinition = successDefinition
         self.freeNote = freeNote
         self.recentTaskIds = recentTaskIds
         self.recentBoardHashes = recentBoardHashes
+    }
+
+    // Backward-compatible decoding for older saved habits (without microSteps)
+    init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        habitName = try c.decode(String.self, forKey: .habitName)
+        habitType = try c.decode(HabitType.self, forKey: .habitType)
+        stage = try c.decode(HabitStage.self, forKey: .stage)
+        mainBarrier = try c.decode(MainBarrier.self, forKey: .mainBarrier)
+        isCore = try c.decode(Bool.self, forKey: .isCore)
+
+        starterStep = try c.decode(String.self, forKey: .starterStep)
+        contextHint = try c.decode(String.self, forKey: .contextHint)
+        successDefinition = try c.decode(String.self, forKey: .successDefinition)
+        freeNote = try c.decode(String.self, forKey: .freeNote)
+
+        recentTaskIds = (try? c.decode([String].self, forKey: .recentTaskIds)) ?? []
+        recentBoardHashes = (try? c.decode([String].self, forKey: .recentBoardHashes)) ?? []
+
+        // New field
+        microSteps = (try? c.decode([String].self, forKey: .microSteps)) ?? []
+        if microSteps.isEmpty {
+            // Seed from starterStep for older data
+            microSteps = [starterStep]
+        }
+        if !microSteps.contains(starterStep) {
+            microSteps.insert(starterStep, at: 0)
+        }
     }
 }
 
