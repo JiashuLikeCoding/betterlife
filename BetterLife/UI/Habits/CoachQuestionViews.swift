@@ -31,11 +31,11 @@ struct CoachQuestionViews {
         var otherPlaceholder: String = "其他…"
 
         var body: some View {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 10) {
                 Text(title)
                     .font(.subheadline)
 
-                FlowLayout(spacing: 8) {
+                WrapLayout(spacing: 8, lineSpacing: 8) {
                     ForEach(options, id: \.self) { opt in
                         Chip(title: opt, selected: selection.wrappedValue.contains(opt)) {
                             if allowsMultiple {
@@ -58,47 +58,59 @@ struct CoachQuestionViews {
                 TextField(otherPlaceholder, text: otherText)
                     .textInputAutocapitalization(.never)
             }
+            .padding(.vertical, 2)
         }
     }
 }
 
-// Simple flow layout for chips
-private struct FlowLayout<Content: View>: View {
+/// Stable wrap layout for chips (iOS 16+)
+private struct WrapLayout: Layout {
     var spacing: CGFloat
-    @ViewBuilder var content: Content
+    var lineSpacing: CGFloat
 
-    init(spacing: CGFloat = 8, @ViewBuilder content: () -> Content) {
+    init(spacing: CGFloat = 8, lineSpacing: CGFloat = 8) {
         self.spacing = spacing
-        self.content = content()
+        self.lineSpacing = lineSpacing
     }
 
-    var body: some View {
-        GeometryReader { geo in
-            self.generate(in: geo)
-        }
-        .frame(minHeight: 1)
-    }
-
-    private func generate(in geo: GeometryProxy) -> some View {
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let maxWidth = proposal.width ?? 0
         var x: CGFloat = 0
         var y: CGFloat = 0
+        var rowHeight: CGFloat = 0
+        var usedWidth: CGFloat = 0
 
-        return ZStack(alignment: .topLeading) {
-            content
-                .alignmentGuide(.leading) { d in
-                    if (abs(x - d.width) > geo.size.width) {
-                        x = 0
-                        y -= d.height + spacing
-                    }
-                    let result = x
-                    x -= d.width + spacing
-                    return result
-                }
-                .alignmentGuide(.top) { _ in
-                    let result = y
-                    return result
-                }
+        for v in subviews {
+            let s = v.sizeThatFits(.unspecified)
+            if x > 0 && (x + s.width) > maxWidth {
+                y += rowHeight + lineSpacing
+                x = 0
+                rowHeight = 0
+            }
+            rowHeight = max(rowHeight, s.height)
+            x += s.width
+            usedWidth = max(usedWidth, x)
+            x += spacing
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+
+        return CGSize(width: maxWidth > 0 ? maxWidth : usedWidth, height: y + rowHeight)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        var x = bounds.minX
+        var y = bounds.minY
+        var rowHeight: CGFloat = 0
+
+        for v in subviews {
+            let s = v.sizeThatFits(.unspecified)
+            if x > bounds.minX && (x + s.width) > bounds.maxX {
+                y += rowHeight + lineSpacing
+                x = bounds.minX
+                rowHeight = 0
+            }
+            v.place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(width: s.width, height: s.height))
+            x += s.width + spacing
+            rowHeight = max(rowHeight, s.height)
+        }
     }
 }
