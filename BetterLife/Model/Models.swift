@@ -13,6 +13,9 @@ struct Habit: Codable, Identifiable, Equatable {
     /// - user can edit/curate
     var microSteps: [String]
 
+    /// Optional AI coach profile used to generate diverse, relevant micro steps.
+    var coachProfile: CoachProfile?
+
     /// 30秒內、單一動作、可判斷完成
     /// - should be one of `microSteps` when possible
     var starterStep: String
@@ -33,6 +36,7 @@ struct Habit: Codable, Identifiable, Equatable {
         mainBarrier: MainBarrier,
         isCore: Bool,
         microSteps: [String] = [],
+        coachProfile: CoachProfile? = nil,
         starterStep: String,
         contextHint: String = "日常最順手的時間",
         successDefinition: String = "完成第一步就算做到",
@@ -47,6 +51,7 @@ struct Habit: Codable, Identifiable, Equatable {
         self.mainBarrier = mainBarrier
         self.isCore = isCore
         self.microSteps = microSteps
+        self.coachProfile = coachProfile
         self.starterStep = starterStep
         self.contextHint = contextHint
         self.successDefinition = successDefinition
@@ -73,8 +78,9 @@ struct Habit: Codable, Identifiable, Equatable {
         recentTaskIds = (try? c.decode([String].self, forKey: .recentTaskIds)) ?? []
         recentBoardHashes = (try? c.decode([String].self, forKey: .recentBoardHashes)) ?? []
 
-        // New field
+        // New fields
         microSteps = (try? c.decode([String].self, forKey: .microSteps)) ?? []
+        coachProfile = try? c.decode(CoachProfile.self, forKey: .coachProfile)
         if microSteps.isEmpty {
             // Seed from starterStep for older data
             microSteps = [starterStep]

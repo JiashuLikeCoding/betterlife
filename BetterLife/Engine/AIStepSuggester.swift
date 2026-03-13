@@ -8,11 +8,18 @@ import Foundation
 /// - If unsure, return a small set that *includes the habit text* so user can edit
 enum AIStepSuggester {
 
-    static func suggestMicroSteps(habitName raw: String) -> [String] {
+    static func suggestMicroSteps(habitName raw: String, coachProfile: CoachProfile? = nil) -> [String] {
         let name = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty else { return [] }
 
         let n = normalize(name)
+
+        if let profile = coachProfile {
+            let fromProfile = suggestFromProfile(habitName: name, profile: profile)
+            if !fromProfile.isEmpty {
+                return fromProfile
+            }
+        }
 
         // Sleep / bedtime
         if containsAny(n, ["睡", "眠", "上床", "早睡", "熄燈", "關燈", "入睡"]) {
@@ -143,5 +150,107 @@ enum AIStepSuggester {
             out.append(i)
         }
         return out
+    }
+
+    // MARK: - Coach profile
+
+    private static func suggestFromProfile(habitName: String, profile: CoachProfile) -> [String] {
+        let answers = profile.answers
+        let other = profile.otherText
+
+        func pick(_ key: String) -> [String] {
+            (answers[key] ?? []).filter { !$0.isEmpty }
+        }
+        func otherText(_ key: String) -> String {
+            (other[key] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+
+        switch profile.kind {
+        case .exercise:
+            let types = pick("exercise.type") + (otherText("exercise.type_other").isEmpty ? [] : [otherText("exercise.type_other")])
+            let barrier = (pick("exercise.barrier").first ?? otherText("exercise.barrier_other"))
+            let dose = (pick("exercise.dose").first ?? otherText("exercise.dose_other"))
+
+            // Choose a single concrete direction from types.
+            let t = types.first ?? "運動"
+            return dedupe([
+                // start/setup
+                "換上運動鞋/運動服",
+                barrier.contains("不想出門") ? "走到門口就算完成" : "站起來伸展30秒",
+
+                // do (varies by type)
+                t.contains("瑜伽") || t.contains("伸展") ? "做一個肩頸放鬆動作30秒" : "做5次深蹲",
+
+                // dose (only one)
+                dose.isEmpty ? "做1分鐘最小版本" : "做\(dose)最小版本",
+
+                // reflect/continue
+                "用一句話感受：身體最緊的是哪裡？",
+                "把運動鞋放在門口（讓明天更好開始）"
+            ])
+
+        case .sleep:
+            let bedtime = (pick("sleep.bedtime").first ?? otherText("sleep.bedtime_other"))
+            let barrier = (pick("sleep.barrier").first ?? otherText("sleep.barrier_other"))
+            let ritual = (pick("sleep.ritual").first ?? otherText("sleep.ritual_other"))
+
+            var steps: [String] = []
+            steps.append(ritual.isEmpty ? "把燈光調暗（或關大燈）" : ritual)
+            if barrier.contains("手機") {
+                steps.append("把手機放遠離床邊充電")
+            }
+            if !bedtime.isEmpty {
+                steps.append("設定\(bedtime)前的『準備睡』提醒")
+            } else {
+                steps.append("設定一個『準備睡』提醒")
+            }
+            steps.append("上床，蓋好被，閉眼10秒")
+            steps.append("把明天要用的東西放好（衣服/包/鑰匙）")
+            steps.append("寫下一句：明天最重要的一件事")
+            return dedupe(steps)
+
+        case .wake:
+            let wakeTime = (pick("wake.time").first ?? otherText("wake.time_other"))
+            let barrier = (pick("wake.barrier").first ?? otherText("wake.barrier_other"))
+            let first = (pick("wake.first").first ?? otherText("wake.first_other"))
+
+            var steps: [String] = []
+            if !wakeTime.isEmpty { steps.append("設定\(wakeTime)起床（先回來就好）") }
+            steps.append(first.isEmpty ? "坐起身10秒" : first)
+            steps.append("下床站起來（只要站起來就好）")
+            if barrier.contains("手機") {
+                steps.append("把手機放遠一點（起床後再看）")
+            }
+            steps.append("打開窗呼吸一口氣")
+            steps.append("喝三口水")
+            return dedupe(steps)
+
+        case .reading:
+            let genre = (pick("reading.genre").first ?? otherText("reading.genre_other"))
+            let dose = (pick("reading.dose").first ?? otherText("reading.dose_other"))
+            let barrier = (pick("reading.barrier").first ?? otherText("reading.barrier_other"))
+
+            var steps: [String] = []
+            steps.append("把書放到手邊")
+            steps.append("打開書到下一頁")
+            if barrier.contains("分心") {
+                steps.append("把手機放遠一點（先5分鐘）")
+            } else {
+                steps.append("坐好，讓眼睛對準書頁10秒")
+            }
+
+            // dose: pick exactly one
+            if !dose.isEmpty {
+                steps.append("讀\(dose)")
+            } else {
+                steps.append("讀1段（或1頁）")
+            }
+
+            steps.append("用一句話回想：剛剛在講什麼？")
+            steps.append("把最喜歡的一句抄下來")
+            steps.append(genre.isEmpty ? "把這本書加入『想讀/在讀』清單" : "把這本\(genre)加入『想讀/在讀』清單")
+            steps.append("把明天要讀的頁碼寫在書籤上")
+            return dedupe(steps)
+        }
     }
 }

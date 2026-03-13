@@ -16,11 +16,157 @@ struct HabitSetupView: View {
     @State private var didManuallyEditSteps: Bool = false
     @State private var isEditingSteps: Bool = false
 
+    // AI Coach
+    @State private var coachProfile: CoachProfile? = nil
+    @State private var coachOtherText: [String: String] = [:]
+    @State private var coachSelected: [String: Set<String>] = [:]
+
     @State private var contextHint: String = "日常最順手的時間"
     @State private var successDefinition: String = "完成第一步就算做到"
     @State private var freeNote: String = ""
 
     var onSave: (Habit) -> Void
+
+    // MARK: - AI Coach
+
+    private func coachBinding(_ key: String) -> Binding<Set<String>> {
+        Binding(
+            get: { coachSelected[key] ?? [] },
+            set: { coachSelected[key] = $0 }
+        )
+    }
+
+    private func otherBinding(_ key: String) -> Binding<String> {
+        Binding(
+            get: { coachOtherText[key] ?? "" },
+            set: { coachOtherText[key] = $0 }
+        )
+    }
+
+    @ViewBuilder
+    private func coachSection(kind: CoachHabitKind) -> some View {
+        switch kind {
+        case .exercise:
+            CoachQuestionViews.ChipsRow(
+                title: "你想做咩類型？（可多選）",
+                options: ["徒手", "伸展", "瑜伽", "跑步", "健身房", "走路"],
+                allowsMultiple: true,
+                selection: coachBinding("exercise.type"),
+                otherText: otherBinding("exercise.type_other"),
+                otherPlaceholder: "其他類型…"
+            )
+
+            CoachQuestionViews.ChipsRow(
+                title: "最小版本多長？",
+                options: ["30秒", "2分鐘", "5分鐘"],
+                allowsMultiple: false,
+                selection: coachBinding("exercise.dose"),
+                otherText: otherBinding("exercise.dose_other"),
+                otherPlaceholder: "其他時間…"
+            )
+
+            CoachQuestionViews.ChipsRow(
+                title: "最大阻力係邊個？",
+                options: ["太累", "沒時間", "不想出門", "不知道做什麼", "容易中斷"],
+                allowsMultiple: false,
+                selection: coachBinding("exercise.barrier"),
+                otherText: otherBinding("exercise.barrier_other"),
+                otherPlaceholder: "其他阻力…"
+            )
+
+        case .sleep:
+            CoachQuestionViews.ChipsRow(
+                title: "你想幾點上床/熄燈？",
+                options: ["10:00", "10:30", "11:00", "11:30", "12:00"],
+                allowsMultiple: false,
+                selection: coachBinding("sleep.bedtime"),
+                otherText: otherBinding("sleep.bedtime_other"),
+                otherPlaceholder: "其他時間…"
+            )
+
+            CoachQuestionViews.ChipsRow(
+                title: "最大阻力係邊個？",
+                options: ["手機", "腦袋停唔到", "做唔完嘢", "環境/室友"],
+                allowsMultiple: false,
+                selection: coachBinding("sleep.barrier"),
+                otherText: otherBinding("sleep.barrier_other"),
+                otherPlaceholder: "其他阻力…"
+            )
+
+            CoachQuestionViews.ChipsRow(
+                title: "你想用咩收工儀式？",
+                options: ["把手機放遠離床", "調暗燈光", "熱水澡", "寫一句明天最重要的事"],
+                allowsMultiple: false,
+                selection: coachBinding("sleep.ritual"),
+                otherText: otherBinding("sleep.ritual_other"),
+                otherPlaceholder: "其他儀式…"
+            )
+
+        case .wake:
+            CoachQuestionViews.ChipsRow(
+                title: "你想幾點起身？",
+                options: ["6:30", "7:00", "7:30", "8:00", "8:30"],
+                allowsMultiple: false,
+                selection: coachBinding("wake.time"),
+                otherText: otherBinding("wake.time_other"),
+                otherPlaceholder: "其他時間…"
+            )
+
+            CoachQuestionViews.ChipsRow(
+                title: "你起唔到身最常係因為？",
+                options: ["太攰", "很痛苦", "手機", "覺得冇必要"],
+                allowsMultiple: false,
+                selection: coachBinding("wake.barrier"),
+                otherText: otherBinding("wake.barrier_other"),
+                otherPlaceholder: "其他原因…"
+            )
+
+            CoachQuestionViews.ChipsRow(
+                title: "起身後第一件事係咩？",
+                options: ["坐起身10秒", "開窗呼吸一口", "喝三口水", "去洗手間"],
+                allowsMultiple: false,
+                selection: coachBinding("wake.first"),
+                otherText: otherBinding("wake.first_other"),
+                otherPlaceholder: "其他第一步…"
+            )
+
+        case .reading:
+            CoachQuestionViews.ChipsRow(
+                title: "你想讀咩類型？",
+                options: ["小說", "非虛構", "學習/教材", "漫畫"],
+                allowsMultiple: false,
+                selection: coachBinding("reading.genre"),
+                otherText: otherBinding("reading.genre_other"),
+                otherPlaceholder: "其他類型…"
+            )
+
+            CoachQuestionViews.ChipsRow(
+                title: "你想用頁數定時間？（擇一）",
+                options: ["1頁", "1段", "5分鐘", "10分鐘"],
+                allowsMultiple: false,
+                selection: coachBinding("reading.dose"),
+                otherText: otherBinding("reading.dose_other"),
+                otherPlaceholder: "其他…"
+            )
+
+            CoachQuestionViews.ChipsRow(
+                title: "最大阻力係？",
+                options: ["拿唔起書", "容易分心", "不知道讀什麼", "讀兩頁就想停"],
+                allowsMultiple: false,
+                selection: coachBinding("reading.barrier"),
+                otherText: otherBinding("reading.barrier_other"),
+                otherPlaceholder: "其他阻力…"
+            )
+        }
+    }
+
+    private func buildCoachProfile(kind: CoachHabitKind) -> CoachProfile {
+        var answers: [String: [String]] = [:]
+        for (k, v) in coachSelected {
+            answers[k] = Array(v)
+        }
+        return CoachProfile(kind: kind, answers: answers, otherText: coachOtherText)
+    }
 
     private func bindingForStep(at index: Int) -> Binding<String> {
         Binding(
@@ -49,7 +195,7 @@ struct HabitSetupView: View {
         guard !name.isEmpty else { return }
         if !force && didManuallyEditSteps { return }
 
-        let suggestions = AIStepSuggester.suggestMicroSteps(habitName: name)
+        let suggestions = AIStepSuggester.suggestMicroSteps(habitName: name, coachProfile: coachProfile)
         microSteps = Array(suggestions.prefix(defaultStepsCount))
         starterStep = microSteps.first ?? ""
         if force == true {
@@ -67,6 +213,25 @@ struct HabitSetupView: View {
                             Text(t.displayName).tag(t)
                         }
                     }
+                }
+
+                if let kind = CoachQuestionViews.inferKind(from: habitName) {
+                    Section("AI 導師（可跳過）") {
+                        Text("先問三個小問題，讓小步驟更貼近你。")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+
+                        coachSection(kind: kind)
+
+                        Button("用這些答案起草小步驟") {
+                            coachProfile = buildCoachProfile(kind: kind)
+                            didManuallyEditSteps = false
+                            regenerateSteps(force: true)
+                        }
+                    }
+                }
+
+                Section("這個習慣") {
                     Picker("目前程度", selection: $stage) {
                         ForEach(HabitStage.allCases) { s in
                             Text(s.displayName).tag(s)
@@ -165,7 +330,7 @@ struct HabitSetupView: View {
 
                         var finalSteps = cleanedSteps
                         if finalSteps.isEmpty {
-                            finalSteps = AIStepSuggester.suggestMicroSteps(habitName: name)
+                            finalSteps = AIStepSuggester.suggestMicroSteps(habitName: name, coachProfile: coachProfile)
                         }
                         if !finalSteps.contains(finalStarter) {
                             finalSteps.insert(finalStarter, at: 0)
@@ -178,6 +343,7 @@ struct HabitSetupView: View {
                             mainBarrier: barrier,
                             isCore: isCore,
                             microSteps: finalSteps,
+                            coachProfile: coachProfile,
                             starterStep: finalStarter,
                             contextHint: contextHint.trimmingCharacters(in: .whitespacesAndNewlines),
                             successDefinition: successDefinition.trimmingCharacters(in: .whitespacesAndNewlines),
