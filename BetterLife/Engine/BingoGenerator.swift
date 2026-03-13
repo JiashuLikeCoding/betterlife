@@ -7,6 +7,22 @@ struct Recipe {
 
 enum BingoGenerator {
 
+    /// Minimal ordered set for stable de-duplication.
+    private struct OrderedSet<T: Hashable> {
+        private(set) var elements: [T] = []
+        private var set: Set<T> = []
+
+        init(_ items: [T]) {
+            for i in items { append(i) }
+        }
+
+        mutating func append(_ item: T) {
+            guard !set.contains(item) else { return }
+            set.insert(item)
+            elements.append(item)
+        }
+    }
+
     // v0 confirmed
     static func stateLevel(mood: Double, drive: Double) -> StateLevel {
         let state = (mood + drive) / 2.0
@@ -44,17 +60,44 @@ enum BingoGenerator {
         var selfLovePool = TaskLibrary.selfLove
         selfLovePool.shuffle(using: &rng)
 
-        // Habit-related pool is built from path group + a few type-related extras
-        let path = TaskLibrary.habitPathGroup(for: habit)
-        var habitPool: [TaskTemplate] = path
+        // Habit tasks MUST come from the user's habit-specific microSteps.
+        // Build a 4-step "path" from the first unique steps (always relevant).
+        var habitSteps = habit.microSteps
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
 
-        // If there is a core habit different from current habit, add its step 1 as optional micro
-        if let core = coreHabit, core.id != habit.id {
-            let corePath = TaskLibrary.habitPathGroup(for: core)
-            if let step1 = corePath.first(where: { $0.pathStep == 1 }) {
-                habitPool.append(.init(id: "core_step1", text: step1.text, tier: .micro, pathGroup: "core_\(core.id.uuidString.prefix(6))", pathStep: 1))
-            }
+        // If user hasn't curated enough steps yet, auto-supplement from local "AI" to reduce repetition.
+        if habitSteps.count < 10 {
+            habitSteps.append(contentsOf: AIStepSuggester.suggestMicroSteps(habitName: habit.habitName))
         }
+        habitSteps = OrderedSet(habitSteps).elements
+
+        let pathGroupId = "habit_\(habit.id.uuidString.prefix(6))"
+        let uniquePathSteps = Array(OrderedSet(habitSteps).elements.prefix(4))
+        let path: [BingoTask] = uniquePathSteps.enumerated().map { (idx, text) in
+            let step = idx + 1
+            let tier: DifficultyTier = {
+                switch step {
+                case 1, 2: return .micro
+                case 3: return .easy
+                default: return .rewarding
+                }
+            }()
+            return BingoTask(
+                id: "micro_path_\(step)",
+                text: text,
+                source: .habit,
+                tier: tier,
+                pathGroup: pathGroupId,
+                pathStep: step
+            )
+        }
+
+        // If there is a core habit different from current habit, add its starter step as optional micro
+        let coreStarter: String? = {
+            guard let core = coreHabit, core.id != habit.id else { return nil }
+            return core.microSteps.first ?? core.starterStep
+        }()
 
         // Determine habit slots sources (habit vs core_habit)
         var habitCount = baseRecipe.habitCount
@@ -82,11 +125,12 @@ enum BingoGenerator {
             let selfLovePath = pickSelfLovePath(using: &rng, tooHard: tooHard, tooEasy: tooEasy)
             pathTasks = selfLovePath
         } else {
-            let habitPath = path.map { tpl -> BingoTask in
-                let adjustedTier = adjustTier(tpl.tier, tooHard: tooHard, tooEasy: tooEasy)
-                return BingoTask(id: tpl.id, text: tpl.text, source: .habit, tier: adjustedTier, pathGroup: tpl.pathGroup, pathStep: tpl.pathStep)
+            // Adjust tiers based on yesterday difficulty, but keep the same 4 steps.
+            pathTasks = path.map { t in
+                var m = t
+                m.tier = adjustTier(t.tier, tooHard: tooHard, tooEasy: tooEasy)
+                return m
             }
-            pathTasks = habitPath
         }
         tasks.append(contentsOf: pathTasks)
 
@@ -111,6 +155,10 @@ enum BingoGenerator {
             var pool = habit.microSteps
                 .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
                 .filter { !$0.isEmpty }
+
+            if let coreStarter {
+                pool.append(coreStarter)
+            }
 
             if pool.isEmpty {
                 pool = [habit.starterStep]
