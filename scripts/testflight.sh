@@ -4,6 +4,10 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
+# Ensure UTF-8 locale (fastlane can crash with US-ASCII in some environments)
+export LANG="${LANG:-en_US.UTF-8}"
+export LC_ALL="${LC_ALL:-en_US.UTF-8}"
+
 # Usage:
 #   ./scripts/testflight.sh
 #   SCHEME=BetterLife BUILD_NUMBER=123 ./scripts/testflight.sh
