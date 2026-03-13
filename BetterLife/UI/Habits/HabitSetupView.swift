@@ -9,7 +9,7 @@ struct HabitSetupView: View {
     @State private var barrier: MainBarrier = .lowMotivation
     @State private var isCore: Bool = true
 
-    @State private var starterStep: String = TaskLibrary.starterSuggestions(for: .focusExecution).first ?? "把手機靜音5分鐘"
+    @State private var starterStep: String = TaskLibrary.starterSuggestions(for: .focusExecution, habitName: nil).first ?? "把手機靜音5分鐘"
     @State private var contextHint: String = "日常最順手的時間"
     @State private var successDefinition: String = "完成第一步就算做到"
     @State private var freeNote: String = ""
@@ -41,7 +41,7 @@ struct HabitSetupView: View {
 
                 Section("起手式（30 秒內）") {
                     Picker("建議", selection: $starterStep) {
-                        ForEach(TaskLibrary.starterSuggestions(for: habitType), id: \.self) { s in
+                        ForEach(TaskLibrary.starterSuggestions(for: habitType, habitName: habitName), id: \.self) { s in
                             Text(s).tag(s)
                         }
                     }
@@ -84,7 +84,15 @@ struct HabitSetupView: View {
                 }
             }
             .onChange(of: habitType) { newValue in
-                let suggestions = TaskLibrary.starterSuggestions(for: newValue)
+                let suggestions = TaskLibrary.starterSuggestions(for: newValue, habitName: habitName)
+                if let first = suggestions.first {
+                    starterStep = first
+                }
+            }
+            .onChange(of: habitName) { _ in
+                // Refresh suggestions when the habit name clarifies intent (e.g. sleep)
+                let suggestions = TaskLibrary.starterSuggestions(for: habitType, habitName: habitName)
+                if suggestions.contains(starterStep) { return }
                 if let first = suggestions.first {
                     starterStep = first
                 }

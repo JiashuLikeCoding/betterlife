@@ -149,7 +149,7 @@ enum BingoGenerator {
 
             // Ensure we have at least 2 habit tasks; if not, append starter suggestions.
             while habitIndices.count < 2 {
-                let suggestion = TaskLibrary.starterSuggestions(for: habit.habitType).first ?? habit.starterStep
+                let suggestion = TaskLibrary.starterSuggestions(for: habit.habitType, habitName: habit.habitName).first ?? habit.starterStep
                 let idx = tasks.count
                 tasks.append(BingoTask(id: "habit_fill_\(idx)", text: suggestion, source: .habit, tier: .micro, pathGroup: nil, pathStep: nil))
                 habitIndices.append(idx)

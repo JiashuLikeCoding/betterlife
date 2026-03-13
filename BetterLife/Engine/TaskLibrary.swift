@@ -89,7 +89,18 @@ enum TaskLibrary {
         }
     }
 
-    static func starterSuggestions(for habitType: HabitType) -> [String] {
+    static func starterSuggestions(for habitType: HabitType, habitName: String? = nil) -> [String] {
+        let name = (habitName ?? "").replacingOccurrences(of: " ", with: "")
+        // Sleep-related heuristics
+        if name.contains("睡") || name.contains("眠") || name.contains("上床") || name.contains("早睡") {
+            return [
+                "把手機放遠一點",
+                "把燈光調暗一點",
+                "設定明天鬧鐘",
+                "把明天衣服放好"
+            ]
+        }
+
         switch habitType {
         case .bodyHealth:
             return ["倒一杯水放手邊", "穿上運動鞋"]
