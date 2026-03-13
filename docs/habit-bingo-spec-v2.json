@@ -1,0 +1,174 @@
+{
+  "app": {
+    "name": "自愛花園 Self Love Garden",
+    "tagline": "每天對自己好一點，讓生活慢慢開花。",
+    "platform": "iPhone",
+    "language": "zh-Hant",
+    "data_storage": "local_only",
+    "daily_reset_time": "04:00"
+  },
+  "mvp_scope": {
+    "features": ["habit_bingo", "daily_checkin", "habit_setup"],
+    "not_in_scope": ["iPad UI", "push_notifications", "cloud_sync", "login", "animation", "illustrations"]
+  },
+  "system_architecture": {
+    "principle": "LLM只提取變數，任務由規則引擎生成",
+    "generation_flow": [
+      "extract_variables",
+      "determine_state_level",
+      "choose_recipe",
+      "generate_seed",
+      "select_main_path",
+      "fill_slots",
+      "validate_board",
+      "replace_invalid_tasks",
+      "fallback_if_needed",
+      "save_board"
+    ]
+  },
+  "llm_extraction_schema": {
+    "schema": {
+      "habit_name": "string",
+      "habit_type": "body_health|knowledge|skill|environment|emotion_care|focus_execution",
+      "stage": "zero_start|starting|has_base",
+      "main_barrier": "no_time|fear_hard|forgetful|low_mood|dont_know_how|low_motivation",
+      "starter_step": "string",
+      "context_hint": "string",
+      "success_definition": "string",
+      "avoidance": "string",
+      "free_note": "string"
+    },
+    "llm_fallback": {
+      "stage": "zero_start",
+      "main_barrier": "low_motivation",
+      "starter_step": "打開這件事的第一步",
+      "context_hint": "日常最順手的時間",
+      "success_definition": "完成第一步就算做到",
+      "ui_behavior": "silent"
+    }
+  },
+  "data_models": {
+    "habit": {
+      "id": "uuid",
+      "habit_name": "string",
+      "habit_type": "enum",
+      "stage": "enum",
+      "main_barrier": "enum",
+      "is_core": "boolean",
+      "starter_step": "string",
+      "context_hint": "string",
+      "success_definition": "string",
+      "free_note": "string",
+      "recent_task_ids": [],
+      "recent_board_hashes": []
+    },
+    "daily_state": {
+      "date_key": "string",
+      "mood": "0..1",
+      "drive": "0..1",
+      "yesterday_difficulty": "0..1"
+    },
+    "bingo_board": {
+      "habit_id": "uuid",
+      "date_key": "string",
+      "board_seed": "hash",
+      "tasks": [],
+      "task_ids": [],
+      "task_sources": [],
+      "checked": []
+    }
+  },
+  "task_rules": {
+    "difficulty_tiers": ["micro", "easy", "rewarding"],
+    "requirements": [
+      "single_action",
+      "immediately_doable",
+      "judgeable",
+      "6-18_chars",
+      "no_abstract",
+      "no_duplicate"
+    ],
+    "forbidden_phrases": [
+      "培養習慣",
+      "保持動力",
+      "持續練習",
+      "改善自己",
+      "提升效率",
+      "試試看",
+      "想想看",
+      "做做看",
+      "整理一下",
+      "輕一點",
+      "先做一些"
+    ]
+  },
+  "validator": {
+    "checks": [
+      "task_length",
+      "no_forbidden_phrase",
+      "unique_action_object",
+      "has_path_group",
+      "total_16_tasks"
+    ]
+  },
+  "atomic_habit_path": {
+    "starter_rule": "30秒內、單一動作、可判斷完成",
+    "templates": {
+      "body_health": ["倒一杯水放手邊", "穿上運動鞋"],
+      "knowledge": ["打開文章讀第一段", "翻到書第一頁"],
+      "skill": ["打開工具做最基本動作", "寫第一行"],
+      "environment": ["清出桌面一小格", "把一樣物品放回原位"],
+      "emotion_care": ["坐好深呼吸三次", "閉眼感受呼吸30秒"],
+      "focus_execution": ["把手機靜音5分鐘", "打開待辦清單"]
+    }
+  },
+  "path_system": {
+    "rule": "每張Bingo至少1條4格成長路徑",
+    "conditions": [
+      "same_path_group_4_tasks",
+      "path_step_continuous",
+      "micro_to_easy_progression"
+    ]
+  },
+  "fallback_system": {
+    "max_retries": 5,
+    "strategy": "replace_invalid_tasks",
+    "final_fallback": "starter_templates_only"
+  },
+  "ui_copy_pack": {
+    "daily_checkin": {
+      "title": "今天先照顧自己，再開始也可以",
+      "subtitle": "不用很有力氣，先看看今天適合怎樣的步伐。"
+    },
+    "bingo_low": {
+      "title": "今天先點亮一小格也很好",
+      "subtitle": "花園不急，我們先從最輕的開始。"
+    },
+    "bingo_mid": {
+      "title": "今天可以慢慢往前走",
+      "subtitle": "做一點點，也是在照顧想成長的自己。"
+    },
+    "bingo_high": {
+      "title": "今天的你，已經準備好再走遠一點",
+      "subtitle": "把想做的事拆小，花園會記得每一步。"
+    },
+    "completion": {
+      "title": "今天的花又長高了一點",
+      "subtitle": "每一小步，都在讓花園慢慢開花。"
+    }
+  },
+  "acceptance_tests": [
+    "offline_still_generate_board",
+    "no_forbidden_phrases",
+    "has_at_least_one_path_group",
+    "low_state_self_love_majority",
+    "high_state_habit_majority",
+    "same_seed_same_board"
+  ],
+  "design_principle": {
+    "task_quality": "由task_library決定",
+    "stability": "由deterministic_seed決定",
+    "emotion": "由ui_copy_pack控制",
+    "llm_role": "extract_variables_only"
+  }
+}
