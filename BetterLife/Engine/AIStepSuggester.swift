@@ -29,21 +29,31 @@ enum AIStepSuggester {
 
         // Reading
         if containsAny(n, ["讀", "閱讀", "看書", "小說", "書"]) {
+            // Diversity rules (implicit):
+            // - Only ONE "time/quantity" step is needed; the rest should be different angles.
             return dedupe([
+                // Start / friction remover
                 "把書放到手邊",
                 "打開書到下一頁",
-                "讀1段（或1頁）",
-                "設一個5分鐘閱讀計時",
-                "把手機調成勿擾5分鐘",
                 "坐好，讓眼睛對準書頁10秒",
                 "先讀第一句就好",
-                "讀完在書籤貼一個小記號",
-                "把今天讀到的句子抄一句",
+
+                // Time/quantity (keep just one default)
+                "讀1段（或1頁）",
+
+                // Reflection / meaning
+                "用一句話回想：剛剛在講什麼？",
                 "寫下一句：我今天讀到…",
+                "把最喜歡的一句抄下來",
+
+                // Planning / continuity
                 "把明天要讀的頁碼寫在書籤上",
-                "把書放回固定的位置（讓明天更好開始）",
-                "讀完把燈光調暗一點（準備收工）",
-                "把下一次要讀的書先放出來"
+                "把這本書加入『想讀/在讀』清單",
+                "選好下一次要讀的書，先放出來",
+
+                // Mark / capture
+                "在書籤貼一個小記號",
+                "在書頁夾一張便條（只寫3個字也可以）"
             ])
         }
 

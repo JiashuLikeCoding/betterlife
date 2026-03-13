@@ -67,7 +67,7 @@ enum BingoGenerator {
             .filter { !$0.isEmpty }
 
         // If user hasn't curated enough steps yet, auto-supplement from local "AI" to reduce repetition.
-        if habitSteps.count < 10 {
+        if habitSteps.count < 12 {
             habitSteps.append(contentsOf: AIStepSuggester.suggestMicroSteps(habitName: habit.habitName))
         }
         habitSteps = OrderedSet(habitSteps).elements
