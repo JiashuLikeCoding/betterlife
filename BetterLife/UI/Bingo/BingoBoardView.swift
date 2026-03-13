@@ -36,12 +36,12 @@ private struct BingoCell: View {
                         .foregroundStyle(.secondary)
                     Spacer()
                     Image(systemName: checked ? "checkmark.circle.fill" : "circle")
-                        .foregroundStyle(checked ? .green : .secondary)
+                        .foregroundStyle(checked ? .green : Color.black.opacity(0.35))
                 }
 
                 Text(text)
                     .font(.subheadline)
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(Color(red: 0.18, green: 0.18, blue: 0.18))
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .lineLimit(3)
                     .minimumScaleFactor(0.85)
