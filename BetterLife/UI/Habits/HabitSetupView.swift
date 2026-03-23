@@ -266,22 +266,31 @@ struct HabitSetupView: View {
                         .filter { !$0.isEmpty }
 
                     ForEach(cleaned, id: \.self) { step in
+                        let isSelected = starterStep.trimmingCharacters(in: .whitespacesAndNewlines) == step
+
                         Button {
-                            starterStep = step
+                            withAnimation(.easeInOut(duration: 0.12)) {
+                                starterStep = step
+                            }
                         } label: {
                             HStack(spacing: 12) {
                                 Text(step)
                                     .foregroundStyle(.primary)
-                                Spacer()
-                                if starterStep.trimmingCharacters(in: .whitespacesAndNewlines) == step {
+                                    .lineLimit(2)
+                                Spacer(minLength: 8)
+                                if isSelected {
                                     Image(systemName: "checkmark")
                                         .foregroundStyle(.blue)
                                 }
                             }
+                            // Tighter than default Form row spacing
+                            .padding(.vertical, 6)
                         }
                         .buttonStyle(.plain)
                         .contentShape(Rectangle())
-                        Divider()
+                        // Subtle “color flip” feedback + clear selection state
+                        .listRowBackground(isSelected ? Color.blue.opacity(0.12) : Color.clear)
+                        .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
                     }
 
                     Button(isEditingSteps ? "完成編輯" : "編輯小步驟") {
